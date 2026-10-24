@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+HOST_PORT="${HOST_PORT:-5050}"
+
 mkdir -p tempdir
 mkdir -p tempdir/templates
 mkdir -p tempdir/static
@@ -21,5 +23,5 @@ _EOF_
 
 cd tempdir || exit
 docker build -t sampleapp .
-docker run -t -d -p 5050:5050 --name samplerunning sampleapp
+docker run -t -d -p "${HOST_PORT}:5050" --name samplerunning sampleapp
 docker ps -a 

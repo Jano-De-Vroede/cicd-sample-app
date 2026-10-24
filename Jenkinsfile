@@ -1,35 +1,33 @@
 node {
-
     stage('Checkout') {
         checkout scm
     }
-    
-    stage('Preparation') {
-        catchError(buildResult: 'SUCCESS') {
-            sh 'docker stop samplerunning'
-            sh 'docker rm samplerunning'
-        }
-    }
-    stage('Build & deploy staging') {
-        sh 'bash sample-app.sh'
-    }
-    stage('Results') {
+
+    stage('Staging') {
         sh '''
-        sleep 5
-        curl http://172.17.0.4:5050/ | grep "You are calling me from 172.17.0.3"
+          docker rm -f samplerunning || true
+          bash sample-app.sh
         '''
     }
 
-     stage('Deploy production') {
+    stage('Test staging') {
         sh '''
-        export SSHPASS=vagrant
-        OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-        HOST=vagrant@192.0.2.10
-
-        sshpass -e ssh $OPTS $HOST "rm -rf ~/sampleapp && mkdir -p ~/sampleapp"
-        sshpass -e scp $OPTS -r sample-app.sh sample_app.py static templates $HOST:~/sampleapp/
-        sshpass -e ssh $OPTS $HOST "docker rm -f samplerunning || true; cd ~/sampleapp && bash sample-app.sh"
+          sleep 5
+          docker exec samplerunning python -c "import urllib.request; body = urllib.request.urlopen('http://localhost:5050/').read().decode(); assert 'You are calling me from' in body"
         '''
+    }
 
+    stage('Deploy production') {
+        withCredentials([usernamePassword(credentialsId: 'webserver-login',
+                                          usernameVariable: 'WEB_USER',
+                                          passwordVariable: 'SSHPASS')]) {
+            sh '''
+              OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+              HOST=$WEB_USER@192.0.2.10
+              sshpass -e ssh $OPTS $HOST "rm -rf ~/sampleapp && mkdir -p ~/sampleapp"
+              sshpass -e scp $OPTS -r sample-app.sh sample_app.py static templates $HOST:~/sampleapp/
+              sshpass -e ssh $OPTS $HOST "docker rm -f samplerunning || true; cd ~/sampleapp && HOST_PORT=8080 bash sample-app.sh"
+            '''
         }
+    }
 }
