@@ -23,5 +23,5 @@ _EOF_
 
 cd tempdir || exit
 docker build -t sampleapp .
-docker run -t -d --restart unless-stopped-p "${HOST_PORT}:5050" --name samplerunning sampleapp
+docker run -t -d --restart unless-stopped -p "${HOST_PORT}:5050" --name samplerunning sampleapp
 docker ps -a 
